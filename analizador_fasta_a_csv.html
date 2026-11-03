@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Analizador de Frecuencia de Aminoácidos FASTA</title>
+    <!-- Tailwind CSS para el diseño estilizado -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        .drag-active {
+            border-color: #3b82f6 !important;
+            background-color: #eff6ff !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- Navbar -->
+    <header class="bg-white border-b border-slate-200 sticky top-0 z-10">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-blue-600 text-white rounded-lg">
+                    <i data-lucide="dna" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-slate-900 text-lg">FASTA to CSV Converter</h1>
+                    <p class="text-xs text-slate-500">Bioinformática - Conteo y Frecuencias de Aminoácidos</p>
+                </div>
+            </div>
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-800">
+                    <span class="w-2 h-2 mr-1.5 bg-emerald-500 rounded-full"></span> 100% Client-Side
+                </span>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 flex flex-col space-y-6">
+
+        <!-- Hero & Instructions -->
+        <div class="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+            <h2 class="text-xl font-bold text-slate-800 mb-2">Procesador de Secuencias Proteicas</h2>
+            <p class="text-slate-600 text-sm leading-relaxed">
+                Esta herramienta procesa un archivo con formato <code class="bg-slate-100 px-1.5 py-0.5 rounded text-pink-600 font-mono text-xs">.fasta</code> o <code class="bg-slate-100 px-1.5 py-0.5 rounded text-pink-600 font-mono text-xs">.fa</code> traducido (por UGENE u otros programas) y contabiliza la longitud de cada secuencia junto con las frecuencias absolutas de los 20 aminoácidos estándar y el codón de paro (<code class="font-mono text-xs">*</code>) para exportar los datos a un archivo CSV.
+            </p>
+        </div>
+
+        <!-- File Upload Area -->
+        <div class="bg-white p-8 rounded-2xl shadow-sm border border-slate-200">
+            <div id="drop-zone" class="border-2 border-dashed border-slate-300 rounded-xl p-8 text-center transition-all duration-200 cursor-pointer hover:border-blue-400 bg-slate-50/50">
+                <input type="file" id="file-input" accept=".fasta,.fa,.txt" class="hidden">
+                <div class="flex flex-col items-center justify-center space-y-3">
+                    <div class="p-3 bg-blue-50 text-blue-600 rounded-full">
+                        <i data-lucide="upload-cloud" class="w-8 h-8"></i>
+                    </div>
+                    <div>
+                        <p class="text-base font-semibold text-slate-700">Haz clic para seleccionar o arrastra tu archivo FASTA aquí</p>
+                        <p class="text-xs text-slate-400 mt-1">Soporta formatos .fasta, .fa y .txt</p>
+                    </div>
+                    <button type="button" onclick="document.getElementById('file-input').click()" class="mt-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white font-medium text-sm rounded-lg shadow-sm transition">
+                        Explorar archivos
+                    </button>
+                </div>
+            </div>
+
+            <!-- Demo Data Button -->
+            <div class="mt-4 flex justify-between items-center text-xs text-slate-500">
+                <span>¿No tienes un archivo a la mano?</span>
+                <button id="demo-btn" class="text-blue-600 font-medium hover:underline flex items-center gap-1">
+                    <i data-lucide="sparkles" class="w-3.5 h-3.5"></i> Cargar datos de prueba
+                </button>
+            </div>
+        </div>
+
+        <!-- Status & Results Section -->
+        <div id="results-section" class="hidden flex-col space-y-6">
+            
+            <!-- Summary Stats Card -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="p-3 bg-indigo-50 text-indigo-600 rounded-lg">
+                        <i data-lucide="file-text" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Total ORFs / Secuencias</p>
+                        <p id="stat-total-seqs" class="text-2xl font-bold text-slate-900">0</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="p-3 bg-emerald-50 text-emerald-600 rounded-lg">
+                        <i data-lucide="ruler" class="w-6 h-6"></i>
+                    </div>
+                    <div>
+                        <p class="text-xs font-medium text-slate-500 uppercase tracking-wider">Promedio de Longitud (aa)</p>
+                        <p id="stat-avg-len" class="text-2xl font-bold text-slate-900">0</p>
+                    </div>
+                </div>
+
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm flex items-center space-x-4">
+                    <div class="p-3 bg-amber-50 text-amber-600 rounded-lg">
+                        <i data-lucide="download" class="w-6 h-6"></i>
+                    </div>
+                    <div class="flex-grow">
+                        <button id="download-btn" class="w-full py-2.5 px-4 bg-emerald-600 hover:bg-emerald-700 text-white font-semibold rounded-lg shadow-sm flex items-center justify-center gap-2 transition">
+                            <i data-lucide="file-spreadsheet" class="w-4 h-4"></i> Descargar CSV
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Table Preview -->
+            <div class="bg-white rounded-xl shadow-sm border border-slate-200 overflow-hidden flex flex-col">
+                <div class="p-4 bg-slate-50 border-b border-slate-200 flex justify-between items-center flex-wrap gap-2">
+                    <h3 class="font-semibold text-slate-800 text-sm flex items-center gap-2">
+                        <i data-lucide="table" class="w-4 h-4 text-slate-500"></i> Vista previa de los primeros resultados
+                    </h3>
+                    <span id="preview-count" class="text-xs text-slate-500 font-mono">Mostrando 0 de 0 registros</span>
+                </div>
+                
+                <div class="overflow-x-auto">
+                    <table class="w-full text-left text-xs">
+                        <thead class="bg-slate-100 border-b border-slate-200 text-slate-700 font-semibold uppercase tracking-wider sticky top-0">
+                            <tr id="table-header">
+                                <!-- Headers injected via JS -->
+                            </tr>
+                        </thead>
+                        <tbody id="table-body" class="divide-y divide-slate-200 font-mono text-slate-600">
+                            <!-- Rows injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-4 text-center text-xs text-slate-500">
+        Plataforma Interactiva de Bioinformática &bull; Procesamiento Local en JS
+    </footer>
+
+    <!-- Logic Javascript -->
+    <script>
+        // Initialize Lucide Icons
+        lucide.createIcons();
+
+        // Standard 20 Amino acids + stop codon
+        const AMINO_ACIDS = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y', '*'];
+        
+        let processedData = [];
+
+        // Elements
+        const dropZone = document.getElementById('drop-zone');
+        const fileInput = document.getElementById('file-input');
+        const resultsSection = document.getElementById('results-section');
+        const downloadBtn = document.getElementById('download-btn');
+        const demoBtn = document.getElementById('demo-btn');
+        const tableHeader = document.getElementById('table-header');
+        const tableBody = document.getElementById('table-body');
+        const previewCount = document.getElementById('preview-count');
+        const statTotalSeqs = document.getElementById('stat-total-seqs');
+        const statAvgLen = document.getElementById('stat-avg-len');
+
+        // Drag and Drop Listeners
+        ['dragenter', 'dragover'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.add('drag-active');
+            }, false);
+        });
+
+        ['dragleave', 'drop'].forEach(eventName => {
+            dropZone.addEventListener(eventName, (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                dropZone.classList.remove('drag-active');
+            }, false);
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            const dt = e.dataTransfer;
+            const files = dt.files;
+            if (files.length > 0) {
+                handleFile(files[0]);
+            }
+        });
+
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                handleFile(e.target.files[0]);
+            }
+        });
+
+        demoBtn.addEventListener('click', () => {
+            const demoContent = `>ORF_001_protein1 length=15
+ATGCGARAYFGHW*
+>ORF_002_protein2 length=22
+MCVSRTLWPYAQKNDEFGHI*
+>ORF_003_protein3 length=18
+MWAKLPRSTVWYCDEFGH*`;
+            processFASTAContent(demoContent);
+        });
+
+        function handleFile(file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                processFASTAContent(e.target.result);
+            };
+            reader.readAsText(file);
+        }
+
+        // Parse FASTA Format
+        function parseFASTA(text) {
+            const lines = text.split(/\r?\n/);
+            const records = [];
+            let currentId = null;
+            let currentSeq = [];
+
+            for (let line of lines) {
+                line = line.trim();
+                if (line.startsWith('>')) {
+                    if (currentId !== null) {
+                        records.push({ id: currentId, seq: currentSeq.join('').toUpperCase() });
+                    }
+                    currentId = line.substring(1).trim();
+                    currentSeq = [];
+                } else if (line.length > 0) {
+                    currentSeq.push(line);
+                }
+            }
+            if (currentId !== null) {
+                records.push({ id: currentId, seq: currentSeq.join('').toUpperCase() });
+            }
+            return records;
+        }
+
+        // Chi-Square Goodness of Fit Test against Uniform Distribution (20 AA expected)
+        function calculateChiSquare(counts, seqLength) {
+            // Excluding Stop codon '*' for standard Chi2 AA calculation if desired, or including 20 std AAs
+            const standardAAs = AMINO_ACIDS.filter(aa => aa !== '*');
+            const totalObservedAA = standardAAs.reduce((sum, aa) => sum + (counts[aa] || 0), 0);
+            
+            if (totalObservedAA === 0) {
+                return { chi2: 0, pValue: 1.0 };
+            }
+
+            const expectedFrequency = totalObservedAA / standardAAs.length;
+            let chi2 = 0;
+
+            standardAAs.forEach(aa => {
+                const observed = counts[aa] || 0;
+                chi2 += Math.pow(observed - expectedFrequency, 2) / expectedFrequency;
+            });
+
+            // Degrees of Freedom = 20 - 1 = 19
+            const df = 19;
+            const pValue = chi2CDF(chi2, df);
+
+            return {
+                chi2: parseFloat(chi2.toFixed(4)),
+                pValue: parseFloat((1 - pValue).toFixed(6)) // Tail p-value
+            };
+        }
+
+        // Simplified Chi-square Cumulative Distribution Function (CDF) approximation for df=19
+        function chi2CDF(x, df) {
+            if (x <= 0) return 0;
+            // Incomplete Gamma Function approximation
+            return gammaInc(df / 2, x / 2);
+        }
+
+        function gammaInc(a, x) {
+            // Regularized lower incomplete gamma function (Series representation)
+            if (x < 0 || a <= 0) return 0;
+            let sum = 1 / a;
+            let term = 1 / a;
+            for (let n = 1; n < 100; n++) {
+                term *= x / (a + n);
+                sum += term;
+                if (term < sum * 1e-12) break;
+            }
+            return Math.pow(x, a) * Math.exp(-x) * sum / gammaLog(a);
+        }
+
+        function gammaLog(a) {
+            // Stirling's approximation for log(gamma(a))
+            const c = [57.156235665862923, -59.59796035547549, 14.136097974741746,
+                -0.49191381609762019, .33994649984811888e-4, .4652362892704858e-4,
+                -.98374475304879564e-4, .15808870322491249e-3, -.21026444172410488e-3,
+                .21743961811521265e-3, -.16431810653676389e-3, .84418223983852743e-4,
+                -.26190838401581408e-4, .36899182659531625e-5];
+            let y = a;
+            let x = a;
+            let tmp = x + 5.2421875;
+            tmp = (x + 0.5) * Math.log(tmp) - tmp;
+            let ser = 0.999999999999997091;
+            for (let j = 0; j < 14; j++) {
+                y += 1;
+                ser += c[j] / y;
+            }
+            return tmp + Math.log(2.5066282746310005 * ser / x);
+        }
+
+        // Process File Data
+        function processFASTAContent(content) {
+            const records = parseFASTA(content);
+            if (records.length === 0) {
+                alert('No se encontraron secuencias válidas en formato FASTA.');
+                return;
+            }
+
+            processedData = records.map(record => {
+                const seq = record.seq;
+                const counts = {};
+                
+                // Initialize counts
+                AMINO_ACIDS.forEach(aa => counts[aa] = 0);
+                
+                // Count frequencies
+                for (let char of seq) {
+                    if (counts.hasOwnProperty(char)) {
+                        counts[char]++;
+                    }
+                }
+
+                return {
+                    id: record.id,
+                    length: seq.length,
+                    counts: counts
+                };
+            });
+
+            renderResults();
+        }
+
+        // Render Summary & Preview Table
+        function renderResults() {
+            resultsSection.classList.remove('hidden');
+
+            // Render Stats
+            statTotalSeqs.textContent = processedData.length.toLocaleString();
+            const totalLen = processedData.reduce((acc, row) => acc + row.length, 0);
+            statAvgLen.textContent = Math.round(totalLen / processedData.length).toLocaleString();
+
+            // Render Table Header
+            const headers = ['ID_ORF', 'Longitud_aa', ...AMINO_ACIDS];
+            tableHeader.innerHTML = headers.map(h => `<th class="px-3 py-2 text-slate-700 whitespace-nowrap">${h}</th>`).join('');
+
+            // Render Table Body (first 10 rows preview)
+            const previewRows = processedData.slice(0, 10);
+            previewCount.textContent = `Mostrando ${previewRows.length} de ${processedData.length} registros`;
+
+            tableBody.innerHTML = previewRows.map(row => {
+                const aaCells = AMINO_ACIDS.map(aa => `<td class="px-3 py-2 text-center font-mono">${row.counts[aa]}</td>`).join('');
+                return `
+                    <tr class="hover:bg-slate-50 transition">
+                        <td class="px-3 py-2 font-medium text-slate-900 max-w-xs truncate" title="${row.id}">${row.id}</td>
+                        <td class="px-3 py-2 text-center bg-slate-50/50 font-semibold">${row.length}</td>
+                        ${aaCells}
+                    </tr>
+                `;
+            }).join('');
+        }
+
+        // Export to CSV
+        downloadBtn.addEventListener('click', () => {
+            if (processedData.length === 0) return;
+
+            const headers = ['ID_ORF', 'Longitud_aa', ...AMINO_ACIDS];
+            let csvContent = headers.map(h => `"${h}"`).join(',') + '\n';
+
+            processedData.forEach(row => {
+                const rowValues = [
+                    `"${row.id.replace(/"/g, '""')}"`,
+                    row.length,
+                    ...AMINO_ACIDS.map(aa => row.counts[aa])
+                ];
+                csvContent += rowValues.join(',') + '\n';
+            });
+
+            // Create and trigger download
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.setAttribute('href', url);
+            link.setAttribute('download', 'dnaSeq.csv');
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        });
+    </script>
+</body>
+</html>
